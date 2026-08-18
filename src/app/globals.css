@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-main: #07090D;
+  --surface-primary: #0D1219;
+  --surface-secondary: #111821;
+  --border-main: #222B36;
+  --border-subtle: #1B232E;
+  --text-primary: #F5F7FA;
+  --text-secondary: #8D98A8;
+  --accent-cyan: #00A3FF;
+  --accent-purple: #7C3AED;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #07090D;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #222B36;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #313D4D;
+}
+
+/* Subtle liquid glass surface effect for enterprise SaaS */
+.glass-surface {
+  background: rgba(13, 18, 25, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid #222B36;
+}
+
+.glass-panel {
+  background: #0D1219;
+  border: 1px solid #222B36;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+}
+
+.surface-hover {
+  transition: all 0.15s ease-in-out;
+}
+
+.surface-hover:hover {
+  background-color: #161F2B;
+  border-color: #313D4D;
+}
+
+/* Monospace font styles for commit hashes, code tokens, and metrics */
+.font-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Subtle enterprise pulse indicator */
+@keyframes subtle-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.live-indicator {
+  animation: subtle-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
