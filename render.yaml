@@ -10,5 +10,5 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        value: postgresql://mr_coder_04:FiqKgetgt506_v6KaXKW5A@sofo-changeges-32312.j77.aws-ap-south-1.cockroachlabs.cloud:26257/Sofo-change-hub?sslmode=verify-full
+      - key: MONGODB_URI
+        value: mongodb+srv://pjsofonic_db_user:MrCoder04%5D@sofo-change-hub.shztxpa.mongodb.net/sofo-change-hub?retryWrites=true&w=majority
