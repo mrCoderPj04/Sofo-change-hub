@@ -34,9 +34,15 @@ export default function LoginPage() {
         body: JSON.stringify({ employeeId, password }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(rawText.length > 200 ? 'Server response error. Please try again.' : rawText || 'Authentication error');
+      }
 
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         throw new Error(data.error || 'Invalid credentials');
       }
 

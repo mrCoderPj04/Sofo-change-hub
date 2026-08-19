@@ -31,36 +31,79 @@ export interface EMSRegisterResponse {
   };
 }
 
-export async function emsLogin(employeeId: string, password: string): Promise<EMSLoginResponse> {
-  const res = await fetch(`${EMS_BASE_URL}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ employeeId, password }),
-  });
+export async function emsLogin(
+  employeeId: string,
+  password: string
+): Promise<EMSLoginResponse | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
 
-  const data = await res.json();
+    const res = await fetch(`${EMS_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, password }),
+      signal: controller.signal,
+    });
 
-  if (!res.ok) {
-    throw new Error(data.error || 'Login failed');
+    clearTimeout(timeoutId);
+
+    const rawText = await res.text();
+    let data: any;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      console.warn('EMS backend returned non-JSON response:', rawText.slice(0, 100));
+      return null;
+    }
+
+    if (!res.ok || data.error) {
+      console.warn('EMS login failed or disabled:', data.error || data.message);
+      return null;
+    }
+
+    return data;
+  } catch (err: any) {
+    console.warn('EMS backend connection error:', err.message);
+    return null;
   }
-
-  return data;
 }
 
-export async function emsRegister(employeeId: string, username: string, password: string): Promise<EMSRegisterResponse> {
-  const res = await fetch(`${EMS_BASE_URL}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ employeeId, username, password }),
-  });
+export async function emsRegister(
+  employeeId: string,
+  username: string,
+  password: string
+): Promise<EMSRegisterResponse | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-  const data = await res.json();
+    const res = await fetch(`${EMS_BASE_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, username, password }),
+      signal: controller.signal,
+    });
 
-  if (!res.ok) {
-    throw new Error(data.error || 'Registration failed');
+    clearTimeout(timeoutId);
+
+    const rawText = await res.text();
+    let data: any;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      return null;
+    }
+
+    if (!res.ok) {
+      return null;
+    }
+
+    return data;
+  } catch (err: any) {
+    console.warn('EMS register error:', err.message);
+    return null;
   }
-
-  return data;
 }
 
 export type ChangeHubRole = 'team_leader' | 'customer';
