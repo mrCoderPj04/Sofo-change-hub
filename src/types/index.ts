@@ -120,7 +120,7 @@ export interface User {
   name: string;
   email: string;
   role: string;
-  avatar: string;
+  avatar?: string;
   organization: string;
   isLead?: boolean;
 }

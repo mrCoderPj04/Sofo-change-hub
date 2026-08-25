@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-14.2-black?style=flat&logo=next.js" alt="Next.js" />
   <img src="https://img.shields.io/badge/React-18-blue?style=flat&logo=react" alt="React" />
-  <img src="https://img.shields.io/badge/CockroachDB-PostgreSQL-5967D8?style=flat&logo=cockroachlabs" alt="CockroachDB" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=flat&logo=supabase" alt="Supabase" />
   <img src="https://img.shields.io/badge/EMS_Auth-Live-00A3FF?style=flat" alt="EMS Auth" />
   <img src="https://img.shields.io/badge/Render-Deploy_Ready-46E3B7?style=flat&logo=render" alt="Render" />
   <img src="https://img.shields.io/badge/UptimeRobot-Health_Monitored-10B981?style=flat" alt="UptimeRobot" />
@@ -36,14 +36,15 @@ The platform connects **Customers** (who submit, track, and provide digital sign
                                │      Next.js 14 (App Router / SSR)           │
                                └──────┬───────────────────────┬───────────────┘
                                       │                       │
-                     EMS JWT Auth     │                       │ Real-time CRUD
-            ┌─────────────────────────▼────────┐     ┌────────▼───────────────────────┐
-            │       PJEMS Backend API          │     │    CockroachDB Serverless      │
-            │ erp-backend-1-02lc.onrender.com │     │       PostgreSQL Engine        │
-            │  • /api/auth/login               │     │  • users                       │
-            │  • /api/auth/register            │     │  • change_requests             │
-            │  • JWT Access & Refresh Tokens   │     │  • comments                    │
-            └──────────────────────────────────┘     └────────────────────────────────┘
+                     EMS JWT Auth     │                       │ Real-time CRUD (pg / Supabase)
+            ┌─────────────────────────▼────────┐     ┌────────▼────────────────────────────────┐
+            │       PJEMS Backend API          │     │          Supabase Cloud                 │
+            │ erp-backend-1-02lc.onrender.com │     │       PostgreSQL Engine 17              │
+            │  • /api/auth/login               │     │  Schema: project_changehub              │
+            │  • /api/auth/register            │     │  • users                                │
+            │  • JWT Access & Refresh Tokens   │     │  • change_requests                      │
+            └──────────────────────────────────┘     │  • comments                             │
+                                                     └─────────────────────────────────────────┘
 ```
 
 ---
@@ -71,7 +72,7 @@ SOFO ChangeHub Web Architecture
 ├── 👥 2. Dedicated Customer Portal
 │   ├── Customer Header            → Client organization badge, Submit Request CTA, User Info
 │   ├── Client Dashboard           → Active in-flight requests submitted by client organization
-│   ├── ➕ Submit Change Request    → Modal to initiate formal change request into CockroachDB
+│   ├── ➕ Submit Change Request    → Modal to initiate formal change request into Supabase
 │   ├── 🎥 Demo Walkthrough        → Review staging video playback and requirement checklist
 │   └── ✍️ Digital Sign-off        → Formal acceptance certificate with SHA-256 hash & signature
 │
@@ -103,23 +104,27 @@ SOFO ChangeHub Web Architecture
 - **`GET /api/ping`** (or **`GET /ping`**) → Plain text `pong` (Status 200 OK)
 
 ### 2. Authentication (EMS Proxy & DB Sync)
-- **`POST /api/auth/login`** → Authenticates via EMS API, auto-detects role, syncs with CockroachDB.
-- **`POST /api/auth/register`** → Registers on EMS backend and records user in CockroachDB.
+- **`POST /api/auth/login`** → Authenticates via EMS API, auto-detects role, syncs with Supabase.
+- **`POST /api/auth/register`** → Registers on EMS backend and records user in Supabase.
 
-### 3. Change Requests (Real-Time CockroachDB)
+### 3. Change Requests (Real-Time Supabase)
 - **`GET /api/change-requests`** → Returns all live change requests.
-- **`POST /api/change-requests`** → Creates a new change request in CockroachDB (Customer only).
+- **`POST /api/change-requests`** → Creates a new change request in Supabase.
 - **`GET /api/change-requests/[id]`** → Returns single change request details.
 - **`PUT /api/change-requests/[id]`** → Updates stage, TL approval, customer signature, or status.
-- **`GET /api/db/init`** → Ensures CockroachDB schema exists.
+- **`GET /api/db/init`** → Ensures Supabase schema (`project_changehub`) & tables exist.
 
 ---
 
-## 🗄️ Database Schema (CockroachDB PostgreSQL)
+## 🗄️ Database Schema (`project_changehub` on Supabase PostgreSQL)
 
 ```sql
+-- Schema
+CREATE SCHEMA IF NOT EXISTS project_changehub;
+SET search_path TO project_changehub, public;
+
 -- Users Table
-CREATE TABLE users (
+CREATE TABLE project_changehub.users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id VARCHAR(50) UNIQUE NOT NULL,
   username VARCHAR(100) NOT NULL,
@@ -132,7 +137,7 @@ CREATE TABLE users (
 );
 
 -- Change Requests Table
-CREATE TABLE change_requests (
+CREATE TABLE project_changehub.change_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ticket_number VARCHAR(50) UNIQUE NOT NULL,
   title TEXT NOT NULL,
@@ -141,9 +146,9 @@ CREATE TABLE change_requests (
   priority VARCHAR(20) DEFAULT 'medium',
   status VARCHAR(30) DEFAULT 'pending_approval',
   current_stage VARCHAR(30) DEFAULT 'submitted',
-  submitted_by UUID REFERENCES users(id),
+  submitted_by UUID REFERENCES project_changehub.users(id),
   client_name VARCHAR(200),
-  assigned_lead UUID REFERENCES users(id),
+  assigned_lead UUID REFERENCES project_changehub.users(id),
   submitted_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   target_delivery_date TIMESTAMPTZ,
@@ -156,10 +161,10 @@ CREATE TABLE change_requests (
 );
 
 -- Comments Table
-CREATE TABLE comments (
+CREATE TABLE project_changehub.comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  change_request_id UUID REFERENCES change_requests(id) ON DELETE CASCADE,
-  author_id UUID REFERENCES users(id),
+  change_request_id UUID REFERENCES project_changehub.change_requests(id) ON DELETE CASCADE,
+  author_id UUID REFERENCES project_changehub.users(id),
   content TEXT NOT NULL,
   stage VARCHAR(30),
   is_internal BOOLEAN DEFAULT false,
@@ -182,8 +187,11 @@ The project includes a ready-to-use [`render.yaml`](render.yaml) Blueprint:
    - **Build Command**: `npm install && npm run build`
    - **Start Command**: `npm start`
    - **Health Check Path**: `/api/health`
-6. Add Environment Variable:
-   - `DATABASE_URL`: `postgresql://mr_coder_04:FiqKgetgt506_v6KaXKW5A@sofo-changeges-32312.j77.aws-ap-south-1.cockroachlabs.cloud:26257/Sofo-change-hub?sslmode=verify-full`
+6. Add Environment Variables:
+   - `NEXT_PUBLIC_SUPABASE_URL`: `https://ffauweryjzpnskdaqcyp.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: `sb_publishable_bLkboY3aqcA-LRqg7VROgw_IjxTh84f`
+   - `SUPABASE_SCHEMA`: `project_changehub`
+   - `DATABASE_URL`: `postgresql://postgres:MrCoder%401304@db.ffauweryjzpnskdaqcyp.supabase.co:5432/postgres?options=-c%20search_path%3Dproject_changehub,public`
 7. Click **Create Web Service**.
 
 ### 🤖 UptimeRobot Setup

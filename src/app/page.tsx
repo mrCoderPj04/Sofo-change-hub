@@ -242,6 +242,7 @@ export default function HomePage() {
             /* Active 11-Step Lifecycle Workspace */
             <CRDetailWorkspace
               changeRequest={selectedCR}
+              currentUser={currentUser}
               onBack={() => setSelectedCR(null)}
               onUpdateCR={handleUpdateCR}
             />
@@ -273,7 +274,7 @@ export default function HomePage() {
                       />
                     </div>
                     <div className="xl:col-span-1">
-                      <ActivityFeed />
+                      <ActivityFeed changeRequests={changeRequests} />
                     </div>
                   </div>
                 </div>
@@ -329,7 +330,7 @@ export default function HomePage() {
 
               {currentSection === 'activity' && (
                 <div className="p-6 max-w-4xl mx-auto">
-                  <ActivityFeed />
+                  <ActivityFeed changeRequests={changeRequests} />
                 </div>
               )}
 
@@ -366,6 +367,7 @@ export default function HomePage() {
       <NotificationDrawer
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
+        changeRequests={changeRequests}
         onSelectNotification={(target) => {
           const matched = changeRequests.find((cr) => target.includes(cr.ticketNumber));
           if (matched) setSelectedCR(matched);

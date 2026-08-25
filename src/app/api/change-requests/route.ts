@@ -43,11 +43,11 @@ export async function GET(req: NextRequest) {
       category: row.category || 'Feature Enhancement',
       priority: row.priority || 'medium',
       status: row.status || 'pending_approval',
-      currentStage: row.current_stage || 'submitted',
+      currentStage: row.current_stage || 'tl_review',
       stageProgress: {
         submitted: 'completed',
-        tl_review: row.current_stage === 'submitted' ? 'current' : 'completed',
-        planning: row.current_stage === 'planning' ? 'current' : row.current_stage === 'submitted' || row.current_stage === 'tl_review' ? 'pending' : 'completed',
+        tl_review: row.current_stage === 'submitted' || row.current_stage === 'tl_review' ? 'current' : 'completed',
+        planning: row.current_stage === 'planning' ? 'current' : ['submitted', 'tl_review'].includes(row.current_stage) ? 'pending' : 'completed',
         development: row.current_stage === 'development' ? 'current' : ['submitted', 'tl_review', 'planning'].includes(row.current_stage) ? 'pending' : 'completed',
         documentation: row.current_stage === 'documentation' ? 'current' : ['submitted', 'tl_review', 'planning', 'development'].includes(row.current_stage) ? 'pending' : 'completed',
         workflow_chart: row.current_stage === 'workflow_chart' ? 'current' : ['submitted', 'tl_review', 'planning', 'development', 'documentation'].includes(row.current_stage) ? 'pending' : 'completed',
@@ -128,11 +128,15 @@ export async function POST(req: NextRequest) {
 
     // Auto-generate ticket number
     const countRes = await query('SELECT count(*) FROM change_requests');
-    const nextNum = parseInt(countRes.rows[0].count, 10) + 101;
+    const nextNum = parseInt(countRes.rows[0]?.count || '0', 10) + 101;
     const ticketNumber = `CR-2026-${nextNum}`;
 
     const deliveryDate = new Date();
     deliveryDate.setDate(deliveryDate.getDate() + (targetDays || 14));
+
+    // Resolve Team Leader for assignment
+    const leadRes = await query("SELECT id FROM users WHERE changehub_role = 'team_leader' LIMIT 1");
+    const assignedLeadId = leadRes.rows[0]?.id || null;
 
     const insertRes = await query(
       `INSERT INTO change_requests (
@@ -145,13 +149,14 @@ export async function POST(req: NextRequest) {
         current_stage,
         submitted_by,
         client_name,
+        assigned_lead,
         target_delivery_date,
         sla_hours_remaining,
         sla_status,
         business_justification,
         scope_summary,
         tags
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *`,
       [
         ticketNumber,
@@ -160,9 +165,10 @@ export async function POST(req: NextRequest) {
         category,
         priority,
         'pending_approval',
-        'submitted', // Initial Stage 1
+        'tl_review', // Directly sent to Team Leader's Approvals Queue
         submittedBy || null,
         clientName || 'Apex Global Financials',
+        assignedLeadId,
         deliveryDate,
         targetDays * 24,
         'healthy',
@@ -176,7 +182,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Change request created successfully in real-time database',
+      message: 'Change request submitted successfully and queued for Team Leader approval',
       data: {
         id: row.id,
         ticketNumber: row.ticket_number,

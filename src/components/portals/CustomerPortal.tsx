@@ -126,7 +126,7 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
               <span>Your Real-Time Change Requests ({clientCRs.length})</span>
             </h3>
             <span className="text-[11px] text-emerald-400 font-code flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> CockroachDB Live Sync
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Supabase Live Sync
             </span>
           </div>
 

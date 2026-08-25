@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Settings, ShieldCheck, Bell, Server, Database, Save, Check } from 'lucide-react';
-import { CURRENT_USER } from '@/data/mockData';
 
 export const SettingsView: React.FC = () => {
   const [saved, setSaved] = useState(false);

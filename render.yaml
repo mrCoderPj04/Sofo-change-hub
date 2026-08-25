@@ -10,5 +10,13 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: MONGODB_URI
-        value: mongodb+srv://pjsofonic_db_user:MrCoder04%5D@sofo-change-hub.shztxpa.mongodb.net/sofo-change-hub?retryWrites=true&w=majority
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: https://ffauweryjzpnskdaqcyp.supabase.co
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_bLkboY3aqcA-LRqg7VROgw_IjxTh84f
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        value: sb_publishable_bLkboY3aqcA-LRqg7VROgw_IjxTh84f
+      - key: SUPABASE_SCHEMA
+        value: project_changehub
+      - key: DATABASE_URL
+        value: postgresql://postgres:MrCoder%401304@db.ffauweryjzpnskdaqcyp.supabase.co:5432/postgres?options=-c%20search_path%3Dproject_changehub,public

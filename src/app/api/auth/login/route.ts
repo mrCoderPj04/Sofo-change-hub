@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { emsLogin } from '@/lib/auth';
+import { emsLogin, determineChangeHubRole } from '@/lib/auth';
 import { query } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -16,65 +16,98 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Try Authenticating with EMS Backend
-    const emsData = await emsLogin(employeeId, password);
+    const trimmedId = employeeId.trim();
 
-    // 2. Determine ChangeHub Role & Defaults
-    const normalizedId = employeeId.trim().toUpperCase();
-    const isLead =
-      normalizedId.startsWith('TL') ||
-      normalizedId.startsWith('LEAD') ||
-      normalizedId.startsWith('ADMIN') ||
-      normalizedId.includes('RAJKAMAL') ||
-      emsData?.user?.role === 'ADMIN';
+    // 1. Authenticate with EMS Backend (https://erp-backend-1-02lc.onrender.com)
+    const emsData = await emsLogin(trimmedId, password);
 
-    const defaultRole = isLead ? 'team_leader' : 'customer';
-    const defaultUsername = emsData?.user?.username || employeeId.trim().toLowerCase();
-    const defaultDisplayName = isLead ? 'Rajkamal Singh' : 'Sarah Chen (Client)';
+    // 2. Classify Department & Role
+    const resolvedRole = determineChangeHubRole(emsData?.user || null, trimmedId);
+
+    // 3. Strict Department Authorization: ONLY Team Leader & Customer allowed
+    if (resolvedRole === 'unauthorized') {
+      const userDept = emsData?.user?.department || emsData?.user?.role || 'Other';
+      return NextResponse.json(
+        {
+          error: `Access Denied: Only users from Team Leader or Customer departments can access SOFO ChangeHub. (Detected Department/Role: ${userDept})`,
+          code: 'UNAUTHORIZED_DEPARTMENT',
+        },
+        { status: 403 }
+      );
+    }
+
+    // 4. Default metadata depending on role
+    const isLead = resolvedRole === 'team_leader';
+    const defaultUsername = emsData?.user?.username || trimmedId.toLowerCase();
+    const defaultDisplayName =
+      emsData?.user?.username ||
+      (isLead ? 'Rajkamal Singh (Team Leader)' : 'Sarah Chen (Customer)');
     const defaultOrg = isLead
       ? 'PJSOFONIC Core Ecosystem'
-      : 'Apex Global Financials';
+      : (emsData?.user?.organization || 'Apex Global Financials');
+    const defaultEmail = emsData?.user?.email || (isLead ? 'rajkamal@pjsofonic.com' : 'sarah.chen@apexfinancials.com');
 
-    // 3. Upsert / Query user in CockroachDB
+    // 5. Query / Upsert in Supabase PostgreSQL (project_changehub.users)
     const existingUserRes = await query(
       'SELECT * FROM users WHERE UPPER(employee_id) = UPPER($1)',
-      [employeeId.trim()]
+      [trimmedId]
     );
 
     let dbUser;
     if (existingUserRes.rows.length === 0) {
       const insertRes = await query(
-        `INSERT INTO users (employee_id, username, ems_user_id, changehub_role, display_name, organization)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO users (employee_id, username, ems_user_id, changehub_role, display_name, email, organization)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
         [
-          employeeId.trim(),
+          trimmedId,
           defaultUsername,
           emsData?.user?.id || `ems-${Date.now()}`,
-          defaultRole,
+          resolvedRole,
           defaultDisplayName,
+          defaultEmail,
           defaultOrg,
         ]
       );
       dbUser = insertRes.rows[0];
     } else {
       dbUser = existingUserRes.rows[0];
-      if (emsData?.user?.id && !dbUser.ems_user_id) {
-        await query(
-          'UPDATE users SET ems_user_id = $1 WHERE id = $2',
-          [emsData.user.id, dbUser.id]
-        );
-      }
+      // Update role if changed or if ems_user_id needs sync
+      await query(
+        `UPDATE users SET 
+          changehub_role = $1, 
+          display_name = COALESCE($2, display_name),
+          organization = COALESCE($3, organization),
+          ems_user_id = COALESCE($4, ems_user_id)
+         WHERE id = $5`,
+        [
+          resolvedRole,
+          defaultDisplayName,
+          defaultOrg,
+          emsData?.user?.id || null,
+          dbUser.id,
+        ]
+      );
+      dbUser.changehub_role = resolvedRole;
     }
 
-    // Generate fallback JWT/session tokens if EMS didn't provide one
+    // 6. Generate authenticated tokens
     const accessToken =
       emsData?.accessToken ||
-      `sofo_tk_${Buffer.from(JSON.stringify({ id: dbUser.id, emp: dbUser.employee_id, role: dbUser.changehub_role, ts: Date.now() })).toString('base64')}`;
+      `sofo_tk_${Buffer.from(
+        JSON.stringify({
+          id: dbUser.id,
+          emp: dbUser.employee_id,
+          role: resolvedRole,
+          ts: Date.now(),
+        })
+      ).toString('base64')}`;
 
     const refreshToken =
       emsData?.refreshToken ||
-      `sofo_rf_${Buffer.from(JSON.stringify({ id: dbUser.id, ts: Date.now() })).toString('base64')}`;
+      `sofo_rf_${Buffer.from(
+        JSON.stringify({ id: dbUser.id, ts: Date.now() })
+      ).toString('base64')}`;
 
     return NextResponse.json({
       success: true,
@@ -84,10 +117,11 @@ export async function POST(req: NextRequest) {
         id: dbUser.id,
         employeeId: dbUser.employee_id,
         username: dbUser.username,
-        emsUserId: dbUser.ems_user_id || 'ems-fallback',
-        changehubRole: dbUser.changehub_role,
-        displayName: dbUser.display_name || dbUser.username,
-        organization: dbUser.organization,
+        emsUserId: dbUser.ems_user_id || 'ems-session',
+        changehubRole: resolvedRole,
+        displayName: dbUser.display_name || defaultDisplayName,
+        email: dbUser.email || defaultEmail,
+        organization: dbUser.organization || defaultOrg,
       },
     });
   } catch (error: any) {

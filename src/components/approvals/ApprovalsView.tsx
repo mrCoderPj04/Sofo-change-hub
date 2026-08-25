@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { ChangeRequest } from '@/types';
 import { CheckCircle2, ShieldCheck, Clock, FileSignature, AlertCircle, ArrowRight, UserCheck } from 'lucide-react';
 import { StatusBadge } from '../common/StatusBadge';
-import { CURRENT_USER } from '@/data/mockData';
 
 interface ApprovalsViewProps {
   changeRequests: ChangeRequest[];
@@ -17,7 +16,9 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
 }) => {
   const [activeFilter, setActiveFilter] = useState<'all' | 'tl' | 'customer'>('all');
 
-  const tlReviewRequests = changeRequests.filter((cr) => cr.currentStage === 'tl_review');
+  const tlReviewRequests = changeRequests.filter(
+    (cr) => cr.currentStage === 'tl_review' || cr.currentStage === 'submitted'
+  );
   const customerApprovalRequests = changeRequests.filter(
     (cr) => cr.currentStage === 'customer_approval'
   );
@@ -37,11 +38,11 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-purple-400" />
             <h2 className="text-base font-bold text-text-primary">
-              Approvals & Governance Sign-off Queue
+              Approvals &amp; Governance Sign-off Queue
             </h2>
           </div>
           <p className="text-xs text-text-muted mt-0.5">
-            Decisive gating checkpoints for Team Lead feasibility triage and Customer digital sign-off
+            Customer change requests waiting for Team Leader technical review and feasibility approval
           </p>
         </div>
 
@@ -65,7 +66,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
                 : 'text-text-muted hover:text-text-primary'
             }`}
           >
-            Team Lead Triage ({tlReviewRequests.length})
+            Team Lead Review ({tlReviewRequests.length})
           </button>
           <button
             onClick={() => setActiveFilter('customer')}
@@ -87,12 +88,12 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
             <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-80" />
             <h3 className="text-sm font-bold text-text-primary">Approvals Queue is Clear</h3>
             <p className="text-xs text-text-muted mt-1">
-              All active change requests have satisfied their respective governance checkpoints.
+              All customer change requests have satisfied their governance review.
             </p>
           </div>
         ) : (
           displayedRequests.map((cr) => {
-            const isTLStep = cr.currentStage === 'tl_review';
+            const isTLStep = cr.currentStage === 'tl_review' || cr.currentStage === 'submitted';
             return (
               <div
                 key={cr.id}
@@ -118,7 +119,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
                           : 'bg-cyan-950/60 text-cyan-300 border border-cyan-800/40'
                       }`}
                     >
-                      {isTLStep ? 'Stage 2: Team Lead Review' : 'Stage 10: Customer Sign-off'}
+                      {isTLStep ? 'Stage 02: Team Lead Review' : 'Stage 10: Customer Sign-off'}
                     </span>
                     <StatusBadge type="priority" value={cr.priority} size="sm" />
                   </div>
@@ -126,7 +127,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs mb-3">
                   <div className="bg-surface p-2.5 rounded border border-border/70">
-                    <span className="text-text-muted text-[10px] block">Requesting Client</span>
+                    <span className="text-text-muted text-[10px] block">Requesting Client / Organization</span>
                     <span className="font-medium text-text-primary">{cr.clientName}</span>
                   </div>
                   <div className="bg-surface p-2.5 rounded border border-border/70">
@@ -136,8 +137,8 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
                     </span>
                   </div>
                   <div className="bg-surface p-2.5 rounded border border-border/70">
-                    <span className="text-text-muted text-[10px] block">Assigned Lead</span>
-                    <span className="font-medium text-text-primary">{cr.assignedLead.name}</span>
+                    <span className="text-text-muted text-[10px] block">Assigned Team Lead</span>
+                    <span className="font-medium text-text-primary">{cr.assignedLead?.name || 'Rajkamal Singh'}</span>
                   </div>
                 </div>
 
@@ -152,7 +153,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
                     }}
                     className="px-3 py-1 bg-purpleAccent hover:bg-purple-600 text-white rounded text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all shrink-0 ml-2"
                   >
-                    <span>Open Approval Review</span>
+                    <span>Review &amp; Approve</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>

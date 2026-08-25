@@ -5,9 +5,13 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // Create users table
+    // 1. Ensure schema exists
+    await query(`CREATE SCHEMA IF NOT EXISTS project_changehub;`);
+    await query(`SET search_path TO project_changehub, public;`);
+
+    // 2. Create users table
     await query(`
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE IF NOT EXISTS project_changehub.users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         employee_id VARCHAR(50) UNIQUE NOT NULL,
         username VARCHAR(100) NOT NULL,
@@ -20,9 +24,9 @@ export async function GET() {
       )
     `);
 
-    // Create change_requests table
+    // 3. Create change_requests table
     await query(`
-      CREATE TABLE IF NOT EXISTS change_requests (
+      CREATE TABLE IF NOT EXISTS project_changehub.change_requests (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         ticket_number VARCHAR(50) UNIQUE NOT NULL,
         title TEXT NOT NULL,
@@ -31,9 +35,9 @@ export async function GET() {
         priority VARCHAR(20) DEFAULT 'medium',
         status VARCHAR(30) DEFAULT 'pending_approval',
         current_stage VARCHAR(30) DEFAULT 'submitted',
-        submitted_by UUID REFERENCES users(id),
+        submitted_by UUID REFERENCES project_changehub.users(id),
         client_name VARCHAR(200),
-        assigned_lead UUID REFERENCES users(id),
+        assigned_lead UUID REFERENCES project_changehub.users(id),
         submitted_at TIMESTAMPTZ DEFAULT now(),
         updated_at TIMESTAMPTZ DEFAULT now(),
         target_delivery_date TIMESTAMPTZ,
@@ -46,12 +50,12 @@ export async function GET() {
       )
     `);
 
-    // Create comments table
+    // 4. Create comments table
     await query(`
-      CREATE TABLE IF NOT EXISTS comments (
+      CREATE TABLE IF NOT EXISTS project_changehub.comments (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        change_request_id UUID REFERENCES change_requests(id) ON DELETE CASCADE,
-        author_id UUID REFERENCES users(id),
+        change_request_id UUID REFERENCES project_changehub.change_requests(id) ON DELETE CASCADE,
+        author_id UUID REFERENCES project_changehub.users(id),
         content TEXT NOT NULL,
         stage VARCHAR(30),
         is_internal BOOLEAN DEFAULT false,
@@ -59,10 +63,17 @@ export async function GET() {
       )
     `);
 
+    const users = await query(`SELECT id, employee_id, username, changehub_role, display_name, organization FROM project_changehub.users;`);
+    const crCount = await query(`SELECT count(*) FROM project_changehub.change_requests;`);
+
     return NextResponse.json({ 
       success: true, 
-      message: 'Database schema initialized successfully',
-      tables: ['users', 'change_requests', 'comments']
+      database: 'Supabase PostgreSQL',
+      schema: 'project_changehub',
+      message: 'Database schema initialized successfully (Clean real-time state)',
+      tables: ['project_changehub.users', 'project_changehub.change_requests', 'project_changehub.comments'],
+      usersCount: users.rows.length,
+      changeRequestsCount: parseInt(crCount.rows[0]?.count || '0', 10),
     });
   } catch (error: any) {
     console.error('DB init error:', error);

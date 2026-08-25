@@ -3,26 +3,29 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Sparkles,
   Lock,
   User,
   ArrowRight,
   CheckCircle2,
-  AlertCircle,
   ShieldCheck,
-  Building2,
+  ShieldAlert,
 } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [employeeId, setEmployeeId] = useState('TL001');
-  const [password, setPassword] = useState('Admin@123');
+  const [employeeId, setEmployeeId] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!employeeId.trim() || !password.trim()) {
+      setError('Please enter your Employee ID and password.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccessMsg(null);
@@ -31,7 +34,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employeeId, password }),
+        body: JSON.stringify({ employeeId: employeeId.trim(), password }),
       });
 
       const rawText = await res.text();
@@ -43,7 +46,7 @@ export default function LoginPage() {
       }
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Invalid credentials');
+        throw new Error(data.error || 'Invalid credentials or department not authorized.');
       }
 
       // Save user session in localStorage
@@ -53,12 +56,12 @@ export default function LoginPage() {
       const roleLabel =
         data.user.changehubRole === 'team_leader' ? 'Team Leader' : 'Customer';
       setSuccessMsg(
-        `Welcome, ${data.user.displayName || data.user.username} (${roleLabel})! Redirecting...`
+        `Welcome, ${data.user.displayName || data.user.username} (${roleLabel})! Redirecting to your dashboard...`
       );
 
       setTimeout(() => {
         router.push('/');
-      }, 600);
+      }, 500);
     } catch (err: any) {
       setError(err.message || 'Authentication error occurred');
     } finally {
@@ -87,14 +90,19 @@ export default function LoginPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             <span>EMS Authentication</span>
           </p>
+
+          <div className="mt-2.5 inline-flex items-center gap-1 px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-[10px] text-purple-300">
+            <ShieldCheck className="w-3 h-3 text-purple-400" />
+            <span>Authorized: <strong>Team Leader</strong> &amp; <strong>Customer</strong></span>
+          </div>
         </div>
 
-        {/* Unified Simple Login Box */}
+        {/* Clean Single Login Box */}
         <div className="bg-[#0D1219] border border-[#222B36] rounded-xl shadow-2xl p-6 relative overflow-hidden backdrop-blur-md">
           {/* Error & Success Feedback Alerts */}
           {error && (
             <div className="mb-4 p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-xs text-red-300 flex items-start gap-2 animate-in fade-in-50">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
@@ -120,7 +128,7 @@ export default function LoginPage() {
                   required
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
-                  placeholder="e.g. TL001 or CUST001"
+                  placeholder="Enter EMS Employee ID (e.g. TL001, CUST001)"
                   className="w-full bg-[#111821] border border-[#222B36] rounded-md pl-9 pr-3 py-2 text-xs text-[#F5F7FA] font-code placeholder-[#5B6675] focus:outline-none focus:border-[#00A3FF]"
                 />
               </div>
@@ -138,7 +146,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   className="w-full bg-[#111821] border border-[#222B36] rounded-md pl-9 pr-3 py-2 text-xs text-[#F5F7FA] placeholder-[#5B6675] focus:outline-none focus:border-[#00A3FF]"
                 />
               </div>
@@ -151,55 +159,21 @@ export default function LoginPage() {
               className="w-full mt-2 py-2.5 px-4 bg-[#00A3FF] hover:bg-[#0284C7] text-[#07090D] font-bold text-xs rounded-md shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {loading ? (
-                <span>Authenticating...</span>
+                <span>Authenticating with EMS...</span>
               ) : (
                 <>
-                  <span>Sign In to ChangeHub</span>
+                  <span>Sign In</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
             </button>
           </form>
-
-          {/* Quick 1-Click Credentials Helper */}
-          <div className="mt-5 pt-4 border-t border-[#222B36]">
-            <span className="text-[10px] text-[#8D98A8] uppercase font-bold tracking-wider block mb-2 text-center">
-              Quick Sign-In Presets
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setEmployeeId('TL001');
-                  setPassword('Admin@123');
-                  setError(null);
-                }}
-                className="py-1.5 px-2 bg-[#111821] hover:bg-[#161F2B] border border-[#222B36] rounded text-[11px] text-[#F5F7FA] flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <ShieldCheck className="w-3 h-3 text-purple-400" />
-                <span>Team Leader</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setEmployeeId('CUST001');
-                  setPassword('Admin@123');
-                  setError(null);
-                }}
-                className="py-1.5 px-2 bg-[#111821] hover:bg-[#161F2B] border border-[#222B36] rounded text-[11px] text-[#F5F7FA] flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Building2 className="w-3 h-3 text-cyan-400" />
-                <span>Customer</span>
-              </button>
-            </div>
-          </div>
         </div>
 
-        {/* Footer */}
+        {/* Footer Status */}
         <div className="mt-4 text-center text-[10px] text-[#8D98A8] font-code space-y-0.5">
-          <div>EMS Backend: <span className="text-[#F5F7FA]">erp-backend-1-02lc.onrender.com</span></div>
-          <div>Database: <span className="text-emerald-400">CockroachDB Connected ✓</span></div>
+          <div>EMS Auth: <span className="text-[#F5F7FA]">erp-backend-1-02lc.onrender.com</span></div>
+          <div>Database: <span className="text-emerald-400">Real-Time Supabase PostgreSQL Connected ✓</span></div>
         </div>
       </div>
     </div>
