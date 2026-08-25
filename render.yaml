@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -19,4 +19,4 @@ services:
       - key: SUPABASE_SCHEMA
         value: project_changehub
       - key: DATABASE_URL
-        value: postgresql://postgres:MrCoder%401304@db.ffauweryjzpnskdaqcyp.supabase.co:5432/postgres?options=-c%20search_path%3Dproject_changehub,public
+        value: postgresql://postgres.ffauweryjzpnskdaqcyp:MrCoder%401304@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?options=-c%20search_path%3Dproject_changehub,public
